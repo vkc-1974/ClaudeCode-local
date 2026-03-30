@@ -1,0 +1,46 @@
+networks:
+  ai-local:
+    driver: bridge
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    networks:
+      - ai-local
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama-data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    command: serve
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: litellm
+    networks:
+      - ai-local
+    ports:
+      - "4000:4000"
+    environment:
+      - LITELLM_MASTER_KEY=ollama
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml
+    command: --config /app/config.yaml --port 4000
+    depends_on:
+      - ollama
+      #ollama:
+      #  condition: service_healthy
+    restart: unless-stopped
